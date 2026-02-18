@@ -99,7 +99,7 @@ async function sendPushNotification(title, body) {
 
         messages.push({
             to: pushToken,
-            sound: 'siren.mp3',
+            sound: 'default',
             title: title,
             body: body,
             data: { action: 'TRIGGER_ALARM' },
