@@ -45,7 +45,7 @@ app.post('/heartbeat', (req, res) => {
     if (isAlarmState) {
         console.log('Power Restored!');
         isAlarmState = false;
-        sendPushNotification("🟢 Power Restored", "Server is back online.");
+        sendPushNotification("🟢 Server Geri Geldi", "Sistem Çalışıyor.");
     }
 
     res.send({ status: 'ok', timestamp: lastHeartbeat });
@@ -81,8 +81,8 @@ setInterval(() => {
         isAlarmState = true;
 
         sendPushNotification(
-            "🚨 CRITICAL ALERT",
-            "Server Unreachable (>2 mins). Power/Internet might be down!"
+            "🔴 KRİTİK UYARI",
+            "2 Dakikadır Sunucuya Ulaşılamıyor.Kesinti olabilir."
         );
     }
 }, 30000);
