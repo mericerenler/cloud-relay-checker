@@ -45,7 +45,7 @@ app.post('/heartbeat', (req, res) => {
     if (isAlarmState) {
         console.log('Power Restored!');
         isAlarmState = false;
-        sendPushNotification("🟢 Server Geri Geldi", "Sistem Çalışıyor.");
+        sendPushNotification("🟢 Power Restored", "Server is back online.");
     }
 
     res.send({ status: 'ok', timestamp: lastHeartbeat });
@@ -81,8 +81,8 @@ setInterval(() => {
         isAlarmState = true;
 
         sendPushNotification(
-            "🔴 KRİTİK UYARI",
-            "2 Dakikadır Sunucuya Ulaşılamıyor.Kesinti olabilir."
+            "🚨 CRITICAL ALERT",
+            "Server Unreachable (>2 mins). Power/Internet might be down!"
         );
     }
 }, 30000);
@@ -99,7 +99,7 @@ async function sendPushNotification(title, body) {
 
         messages.push({
             to: pushToken,
-            sound: 'siren.mp3',
+            sound: 'default', // Let the Channel (App Settings) decide the sound
             title: title,
             body: body,
             data: { action: 'TRIGGER_ALARM' },
