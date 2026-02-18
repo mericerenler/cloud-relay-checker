@@ -99,10 +99,10 @@ async function sendPushNotification(title, body) {
 
         messages.push({
             to: pushToken,
-            sound: 'default',
+            sound: 'siren.mp3',
             title: title,
             body: body,
-            data: { withSome: 'data' },
+            data: { action: 'TRIGGER_ALARM' },
             priority: 'high',
             channelId: 'critical_alert',
         });
