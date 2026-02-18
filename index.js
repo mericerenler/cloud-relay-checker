@@ -45,7 +45,7 @@ app.post('/heartbeat', (req, res) => {
     if (isAlarmState) {
         console.log('Power Restored!');
         isAlarmState = false;
-        sendPushNotification("🟢 Power Restored", "Home Server is back online.");
+        sendPushNotification("🟢 Power Restored", "Server is back online.");
     }
 
     res.send({ status: 'ok', timestamp: lastHeartbeat });
@@ -82,7 +82,7 @@ setInterval(() => {
 
         sendPushNotification(
             "🚨 CRITICAL ALERT",
-            "Home Server Unreachable (>2 mins). Power/Internet might be down!"
+            "Server Unreachable (>2 mins). Power/Internet might be down!"
         );
     }
 }, 30000);
