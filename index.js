@@ -9,16 +9,19 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 const expo = new Expo();
 
-// In-memory storage (Reset on Railway restart, but okay for this use case)
+// In-memory storage
 let lastHeartbeat = Date.now();
-let registeredTokens = new Set();
+// Token → channelId map (her token için hangi kanal aktif)
+const registeredTokens = new Map(); // Map<token, channelId>
 let isAlarmState = false;
+
+const DEFAULT_CHANNEL = 'critical_faded'; // varsayılan: faded
 
 /* ================= ROUTES ================= */
 
-// 1. Mobile App registers its token here
+// 1. Mobile App registers its token + active channelId here
 app.post('/register-token', (req, res) => {
-    const { token } = req.body;
+    const { token, channelId } = req.body;
 
     if (!token) {
         return res.status(400).send({ error: 'Token required' });
@@ -26,14 +29,12 @@ app.post('/register-token', (req, res) => {
 
     if (!Expo.isExpoPushToken(token)) {
         console.error(`Token ${token} is not a valid Expo push token`);
-        // We might validly receive a token that Expo lib doesn't like strictly, 
-        // but usually it's correct. Let's log and try anyway or fail?
-        // Let's safe fail.
         return res.status(400).send({ error: 'Invalid Expo Push Token' });
     }
 
-    registeredTokens.add(token);
-    console.log('Token Registered:', token);
+    // channelId yoksa varsayılanı kullan
+    registeredTokens.set(token, channelId || DEFAULT_CHANNEL);
+    console.log(`Token Registered: ${token} → channel: ${channelId || DEFAULT_CHANNEL}`);
     res.send({ status: 'registered' });
 });
 
@@ -41,11 +42,10 @@ app.post('/register-token', (req, res) => {
 app.post('/heartbeat', (req, res) => {
     lastHeartbeat = Date.now();
 
-    // Valid heartbeat means power is back
     if (isAlarmState) {
         console.log('Power Restored!');
         isAlarmState = false;
-        sendPushNotification("🟢 Server Geri Geldi", "Sistem Çalışıyor.");
+        sendPushNotification("🟢 Power Restored", "Server is back online.");
     }
 
     res.send({ status: 'ok', timestamp: lastHeartbeat });
@@ -61,7 +61,6 @@ app.post('/alert', (req, res) => {
 
 // 4. Status Check for Monitor App
 app.get('/', (req, res) => {
-    // If heartbeat is fresh (< 2 mins), return UP
     const isUp = (Date.now() - lastHeartbeat) < 120000;
     res.json({
         status: isUp ? 'UP' : 'DOWN',
@@ -81,8 +80,8 @@ setInterval(() => {
         isAlarmState = true;
 
         sendPushNotification(
-            "🔴 KRİTİK UYARI",
-            "2 Dakikadır Sunucuya Ulaşılamıyor.Kesinti olabilir."
+            "🚨 CRITICAL ALERT",
+            "Server Unreachable (>2 mins). Power/Internet might be down!"
         );
     }
 }, 30000);
@@ -91,7 +90,7 @@ setInterval(() => {
 /* ================= HELPER ================= */
 async function sendPushNotification(title, body) {
     let messages = [];
-    for (let pushToken of registeredTokens) {
+    for (let [pushToken, channelId] of registeredTokens) {
         if (!Expo.isExpoPushToken(pushToken)) {
             console.error(`Push token ${pushToken} is not a valid Expo push token`);
             continue;
@@ -99,14 +98,14 @@ async function sendPushNotification(title, body) {
 
         messages.push({
             to: pushToken,
-            sound: 'default', // Let the Channel (App Settings) decide the sound
+            sound: 'default',       // Ses kanaldan gelir (channelId belirler)
             title: title,
             body: body,
             data: { action: 'TRIGGER_ALARM' },
             priority: 'high',
-            channelId: 'critical_alert',
+            channelId: channelId,   // Her token için doğru kanal (faded veya roombah)
             ttl: 0,
-            expiration: Math.floor(Date.now() / 1000) + 3600, // 1 hour
+            expiration: Math.floor(Date.now() / 1000) + 3600,
             mutableContent: true,
         });
     }
