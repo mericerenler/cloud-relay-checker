@@ -99,7 +99,7 @@ async function sendPushNotification(title, body) {
 
         messages.push({
             to: pushToken,
-            sound: 'default', // Let the Channel (App Settings) decide the sound
+            sound: 'roombah.mp3', // Let the Channel (App Settings) decide the sound
             title: title,
             body: body,
             data: { action: 'TRIGGER_ALARM' },
