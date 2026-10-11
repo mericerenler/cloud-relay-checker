@@ -11,22 +11,25 @@ const expo = new Expo();
 let lastHeartbeat = Date.now();
 const registeredTokens = new Map();
 let isAlarmState = false;
+let outageReminderSent = false;
+const OUTAGE_REMINDER_MS = 15 * 60_000;
 const DEFAULT_CHANNEL = 'critical_faded_v2';
 
 app.post('/register-token', (req, res) => {
     const { token, channelId } = req.body;
     if (!token) return res.status(400).send({ error: 'Token required' });
     if (!Expo.isExpoPushToken(token)) {
-        console.error(`Token ${token} is not a valid Expo push token`);
+        console.error('Invalid Expo push token');
         return res.status(400).send({ error: 'Invalid Expo Push Token' });
     }
     registeredTokens.set(token, channelId || DEFAULT_CHANNEL);
-    console.log(`Token Registered: ${token} -> channel: ${channelId || DEFAULT_CHANNEL}`);
+    console.log('Token registered; channel:', channelId || DEFAULT_CHANNEL);
     res.send({ status: 'registered' });
 });
 
 app.post('/heartbeat', (req, res) => {
     lastHeartbeat = Date.now();
+    outageReminderSent = false;
     if (isAlarmState) {
         console.log('Power Restored!');
         isAlarmState = false;
@@ -44,14 +47,18 @@ app.post('/alert', (req, res) => {
 
 app.get('/', (req, res) => {
     const isUp = Date.now() - lastHeartbeat < 120000;
-    res.json({ status: isUp ? 'UP' : 'DOWN', last_seen_seconds_ago: Math.floor((Date.now() - lastHeartbeat) / 1000) });
+    res.json({ relay_version: 'outage-reminder-v1', registered_devices: registeredTokens.size, status: isUp ? 'UP' : 'DOWN', last_seen_seconds_ago: Math.floor((Date.now() - lastHeartbeat) / 1000) });
 });
 
 setInterval(() => {
-    if (Date.now() - lastHeartbeat > 120000 && !isAlarmState) {
+    const diff = Date.now() - lastHeartbeat;
+    if (diff > 120000 && !isAlarmState) {
         console.log('🚨 ALARM: Server Down / Power Lost!');
         isAlarmState = true;
         sendPushNotification('🔴 KRİTİK UYARI', '2 Dakikadır Sunucuya Ulaşılamıyor. Kesinti olabilir.');
+    } else if (isAlarmState && diff >= OUTAGE_REMINDER_MS && !outageReminderSent) {
+        outageReminderSent = true;
+        sendPushNotification('🚨 API OFFLINE', 'Sunucudan 15 dakikadır yaşam sinyali alınamıyor. Kesinti devam ediyor.');
     }
 }, 30000);
 
@@ -73,9 +80,9 @@ async function sendPushNotification(title, body) {
         };
         try {
             const ticket = await expo.sendPushNotificationsAsync([message]);
-            console.log('Push Sent:', pushToken.slice(0, 28), ticket);
+            console.log('Push result:', ticket.map(t => ({ status: t.status, id: t.id, error: t.details?.error })));
         } catch (error) {
-            console.error('Push send failed for token:', pushToken.slice(0, 28), error);
+            console.error('Push send failed:', error?.name || 'Error');
         }
     }
 }
